@@ -14,25 +14,22 @@ class CPU:
         self.pc = 0  # ? program counter
 
     def load(self):
-        """Load a program into memory."""
+        prog = sys.argv[1]
+        addr = 0
 
-        address = 0
+        with open(prog) as file:
+            for line in file:
+                # print(line, end="")
 
-        # For now, we've just hardcoded a program:
+                line = line.split("#")  # ? removes #'s
+                line = line[0].strip()  # ? grabs first index, removes formatting
+                if line == "":  # ? removes blank lines
+                    continue
+                line = int(line, 2)  # ? converts str to binary int
+                self.ram[addr] = line  # ? add to memory
+                addr += 1  # ? iterate
 
-        program = [
-            # From print8.ls8
-            0b10000010,  # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111,  # PRN R0
-            0b00000000,
-            0b00000001,  # HLT
-        ]
-
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
+        # sys.exit()
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
