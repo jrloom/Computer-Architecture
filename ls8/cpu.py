@@ -3,6 +3,8 @@
 import sys
 
 LDI = 0b10000010
+PSH = 0b01000101
+POP = 0b01000110
 PRN = 0b01000111
 MUL = 0b10100010
 HLT = 0b00000001
@@ -21,6 +23,8 @@ class CPU:
         self.running = False
         self.branchtable = {}
         self.branchtable[LDI] = self.handle_LDI
+        self.branchtable[PSH] = self.handle_PSH
+        self.branchtable[POP] = self.handle_POP
         self.branchtable[PRN] = self.handle_PRN
         self.branchtable[MUL] = self.handle_MUL
         self.branchtable[HLT] = self.handle_HLT
@@ -88,6 +92,24 @@ class CPU:
 
     def handle_LDI(self, operand_a, operand_b):
         self.reg[operand_a] = operand_b
+
+    def handle_PSH(self, operand_a, operand_b):
+        self.reg[self.sp] -= 1
+        # ? example from class...
+        # reg_num = self.ram[self.pc + 1]
+        # val = self.reg[reg_num]
+        # addr = self.reg[self.sp]
+        # self.ram[addr] = val
+        # ? removing vars, comparing values
+        # print(f"psh op = {operand_a}")
+        # print(f"psh pc = {self.ram[self.pc + 1]}")
+        # * simplified, but illegible...?
+        self.ram[self.reg[self.sp]] = self.reg[operand_a]
+
+    def handle_POP(self, operand_a, operand_b):
+        # ? ...and reverse it
+        self.reg[operand_a] = self.ram[self.reg[self.sp]]
+        self.reg[self.sp] += 1
 
     def handle_PRN(self, operand_a, operand_b):
         print(f"prints {self.reg[operand_a]}")
