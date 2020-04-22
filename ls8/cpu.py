@@ -2,6 +2,11 @@
 
 import sys
 
+LDI = 0b10000010
+PRN = 0b01000111
+MUL = 0b10100010
+HLT = 0b00000001
+
 
 class CPU:
     """Main CPU class."""
@@ -12,6 +17,13 @@ class CPU:
         self.ram = [0] * 256  # ? memory
         self.reg = [0] * 8  # ? registers
         self.pc = 0  # ? program counter
+        self.sp = 7  # ? stack pointer
+        self.running = False
+        self.branchtable = {}
+        self.branchtable[LDI] = self.handle_LDI
+        self.branchtable[PRN] = self.handle_PRN
+        self.branchtable[MUL] = self.handle_MUL
+        self.branchtable[HLT] = self.handle_HLT
 
     def load(self):
         prog = sys.argv[1]
@@ -74,30 +86,34 @@ class CPU:
     def ram_write(self, addr, val):
         self.ram[addr] = val
 
+    def handle_LDI(self, operand_a, operand_b):
+        self.reg[operand_a] = operand_b
+
+    def handle_PRN(self, operand_a, operand_b):
+        print(f"prints {self.reg[operand_a]}")
+
+    def handle_MUL(self, operand_a, operand_b):
+        self.alu("MUL", operand_a, operand_b)
+
+    def handle_HLT(self, operand_a, operand_b):
+        self.running = False
+
     def run(self):
         """Run the CPU."""
 
-        running = True
-        LDI = 0b10000010
-        PRN = 0b01000111
-        MUL = 0b10100010
-        HLT = 0b00000001
+        self.running = True
 
-        while running:
+        while self.running:
             instruction = self.ram_read(self.pc)
+            inst_len = ((instruction & 0b11000000) >> 6) + 1
+
             operand_a = self.ram_read(self.pc + 1)
             operand_b = self.ram_read(self.pc + 2)
 
-            if instruction == LDI:
-                # print(f"op a: {operand_a} | op b: {operand_b}")
-                self.reg[operand_a] = operand_b
-                self.pc += 3
-            elif instruction == PRN:
-                print(f"prints {self.reg[operand_a]}")
-                self.pc += 2
-            elif instruction == MUL:
-                self.alu("MUL", operand_a, operand_b)
-                self.pc += 3
-            elif instruction == HLT:
-                # print("stop")
-                running = False
+            try:
+                self.branchtable[instruction](operand_a, operand_b)
+
+            except:
+                print(f"something went wrong with {instruction}")
+
+            self.pc += inst_len
