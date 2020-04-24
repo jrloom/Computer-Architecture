@@ -5,7 +5,6 @@
 
 import sys
 from cpu import *
-# from cpu1 import *
 
 cpu = CPU()
 

@@ -127,8 +127,7 @@ class CPU:
         self.pc = self.reg[operand_a]
 
     def handle_RET(self, operand_a, operand_b):
-        addr = self.reg[self.sp]
-        self.pc = self.ram_read(addr)
+        self.pc = self.ram_read(self.reg[self.sp])
         self.reg[self.sp] += 1
 
     """
