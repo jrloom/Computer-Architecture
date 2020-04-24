@@ -2,13 +2,6 @@
 
 import sys
 
-LDI = 0b10000010
-PSH = 0b01000101
-POP = 0b01000110
-PRN = 0b01000111
-MUL = 0b10100010
-HLT = 0b00000001
-
 
 class CPU:
     """Main CPU class."""
@@ -16,34 +9,41 @@ class CPU:
     def __init__(self):
         """Construct a new CPU."""
 
-        self.ram = [0] * 256  # ? memory
-        self.reg = [0] * 8  # ? registers
-        self.pc = 0  # ? program counter
-        self.sp = 7  # ? stack pointer
+        self.ram = [0] * 256
+        self.reg = [0] * 8
+        self.pc = 0
+        self.sp = 7
         self.running = False
-        self.branchtable = {}
-        self.branchtable[LDI] = self.handle_LDI
-        self.branchtable[PSH] = self.handle_PSH
-        self.branchtable[POP] = self.handle_POP
-        self.branchtable[PRN] = self.handle_PRN
-        self.branchtable[MUL] = self.handle_MUL
-        self.branchtable[HLT] = self.handle_HLT
+        self.branchtable = {
+            0b00000001: self.handle_HLT,
+            0b10000010: self.handle_LDI,
+            0b01000111: self.handle_PRN,
+            0b01000101: self.handle_PSH,
+            0b01000110: self.handle_POP,
+            0b01010000: self.handle_CAL,
+            0b00010001: self.handle_RET,
+            0b10100000: self.handle_ADD,
+            0b10100010: self.handle_MUL,
+        }
 
-    def load(self):
-        prog = sys.argv[1]
+    def load(self, prog):
+        prog = "examples/" + prog + ".ls8"
         addr = 0
 
         with open(prog) as file:
-            for line in file:
-                # print(line, end="")
 
-                line = line.split("#")  # ? removes #'s
-                line = line[0].strip()  # ? grabs first index, removes formatting
-                if line == "":  # ? removes blank lines
+            print(f"file: {prog}")
+
+            for line in file:
+                line = line.split("#")
+                line = line[0].strip()
+
+                if line == "":
                     continue
-                line = int(line, 2)  # ? converts str to binary int
-                self.ram[addr] = line  # ? add to memory
-                addr += 1  # ? iterate
+
+                line = int(line, 2)
+                self.ram[addr] = line
+                addr += 1
 
         # sys.exit()
 
@@ -82,43 +82,64 @@ class CPU:
 
         print()
 
-    # ? takes RAM address, returns stored value
+    """
+    # * Read, Write
+    """
+
     def ram_read(self, addr):
         return self.ram[addr]
 
-    # ? takes address & value, writes value to address in RAM
-    def ram_write(self, addr, val):
+    def ram_write(self, val, addr):
         self.ram[addr] = val
+
+    """
+    # * Halt, Load, Print
+    """
+
+    def handle_HLT(self, operand_a, operand_b):
+        self.running = False
 
     def handle_LDI(self, operand_a, operand_b):
         self.reg[operand_a] = operand_b
 
-    def handle_PSH(self, operand_a, operand_b):
-        self.reg[self.sp] -= 1
-        # ? example from class...
-        # reg_num = self.ram[self.pc + 1]
-        # val = self.reg[reg_num]
-        # addr = self.reg[self.sp]
-        # self.ram[addr] = val
-        # ? removing vars, comparing values
-        # print(f"psh op = {operand_a}")
-        # print(f"psh pc = {self.ram[self.pc + 1]}")
-        # * simplified, but illegible...?
-        self.ram[self.reg[self.sp]] = self.reg[operand_a]
-
-    def handle_POP(self, operand_a, operand_b):
-        # ? ...and reverse it
-        self.reg[operand_a] = self.ram[self.reg[self.sp]]
-        self.reg[self.sp] += 1
-
     def handle_PRN(self, operand_a, operand_b):
         print(f"prints {self.reg[operand_a]}")
 
+    """
+    # * Push, Pop
+    """
+
+    def handle_PSH(self, operand_a, operand_b):
+        self.reg[self.sp] -= 1
+        self.ram_write(self.reg[operand_a], self.reg[self.sp])
+
+    def handle_POP(self, operand_a, operand_b):
+        self.reg[operand_a] = self.ram_read(self.reg[self.sp])
+        self.reg[self.sp] += 1
+
+    """
+    # * Call, Return
+    """
+
+    def handle_CAL(self, operand_a, operand_b):
+        self.reg[self.sp] -= 1
+        self.ram_write(self.pc + 2, self.reg[self.sp])
+        self.pc = self.reg[operand_a]
+
+    def handle_RET(self, operand_a, operand_b):
+        addr = self.reg[self.sp]
+        self.pc = self.ram_read(addr)
+        self.reg[self.sp] += 1
+
+    """
+    # * ALU
+    """
+
+    def handle_ADD(self, operand_a, operand_b):
+        self.alu("ADD", operand_a, operand_b)
+
     def handle_MUL(self, operand_a, operand_b):
         self.alu("MUL", operand_a, operand_b)
-
-    def handle_HLT(self, operand_a, operand_b):
-        self.running = False
 
     def run(self):
         """Run the CPU."""
@@ -126,16 +147,20 @@ class CPU:
         self.running = True
 
         while self.running:
-            instruction = self.ram_read(self.pc)
-            inst_len = ((instruction & 0b11000000) >> 6) + 1
+
+            inst = self.ram_read(self.pc)
+            inst_len = ((inst & 0b11000000) >> 6) + 1
 
             operand_a = self.ram_read(self.pc + 1)
             operand_b = self.ram_read(self.pc + 2)
 
-            try:
-                self.branchtable[instruction](operand_a, operand_b)
+            if inst in self.branchtable:
+                self.branchtable[inst](operand_a, operand_b)
 
-            except:
-                print(f"something went wrong with {instruction}")
+            else:
+                print(f"unknown instruction {inst}")
 
-            self.pc += inst_len
+            if (
+                not inst & 0b00010000
+            ):  # ? what is this? --> call/ret doesn't work without it...
+                self.pc += inst_len
